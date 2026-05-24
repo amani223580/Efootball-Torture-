@@ -2,21 +2,17 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 
-# --- 1. DATABASE SETUP (V3 na Usimamizi wa Misimu) ---
+# --- 1. DATABASE SETUP (V3) ---
 def init_db():
     conn = sqlite3.connect('tinka_tech_v3.db')
     c = conn.cursor()
-    # Table ya Wachezaji
     c.execute('''CREATE TABLE IF NOT EXISTS players 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, league_id INTEGER, name TEXT, phone TEXT, payment_id TEXT, status TEXT)''')
-    # Table ya Mechi
     c.execute('''CREATE TABLE IF NOT EXISTS matches 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, league_id INTEGER, home TEXT, away TEXT, home_score INTEGER, away_score INTEGER, stage TEXT, status TEXT)''')
-    # Table ya Misimu/Ligi kufuatilia hadhi (Active au Completed) na Bingwa
     c.execute('''CREATE TABLE IF NOT EXISTS leagues 
                  (league_id INTEGER PRIMARY KEY, winner TEXT, status TEXT)''')
     
-    # Hakikisha kuna angalau Ligi ya kwanza kama mfumo ni mpya
     c.execute("SELECT COUNT(*) FROM leagues")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO leagues (league_id, winner, status) VALUES (1, '', 'Active')")
@@ -77,7 +73,6 @@ elif choice == "📝 Jisajili Hapa":
                 conn = sqlite3.connect('tinka_tech_v3.db')
                 c = conn.cursor()
                 
-                # --- AUTOMATIC NEW LEAGUE PROGRESSION LOGIC ---
                 c.execute("SELECT league_id, status FROM leagues ORDER BY league_id DESC LIMIT 1")
                 last_league = c.fetchone()
                 
@@ -86,7 +81,6 @@ elif choice == "📝 Jisajili Hapa":
                     c.execute("SELECT COUNT(*) FROM players WHERE league_id=?", (l_id,))
                     player_count = c.fetchone()[0]
                     
-                    # Kama ligi ya mwisho imeshafungwa (Completed) au ina watu 16+, anzisha mpya
                     if l_status == 'Completed' or player_count >= 16:
                         current_league = l_id + 1
                         c.execute("INSERT INTO leagues (league_id, winner, status) VALUES (?, '', 'Active')", (current_league,))
@@ -98,7 +92,6 @@ elif choice == "📝 Jisajili Hapa":
                     c.execute("INSERT INTO leagues (league_id, winner, status) VALUES (1, '', 'Active')")
                     conn.commit()
                 
-                # Msajili mchezaji kwenye ligi iliyo wazi
                 c.execute('INSERT INTO players (league_id, name, phone, payment_id, status) VALUES (?, ?, ?, ?, ?)', 
                           (current_league, name, phone, pay_id, "Pending"))
                 conn.commit()
@@ -111,7 +104,6 @@ elif choice == "📅 Ratiba & Mawasiliano":
     st.subheader("Ratiba za Mechi na Mawasiliano ya Wachezaji")
     conn = sqlite3.connect('tinka_tech_v3.db')
     
-    # Kuonyesha tu ligi ambazo zipo active
     active_leagues = pd.read_sql("SELECT league_id FROM leagues WHERE status='Active'", conn)
     if not active_leagues.empty:
         l_id = st.selectbox("Chagua Ligi kuona Ratiba", active_leagues['league_id'].tolist())
@@ -153,7 +145,7 @@ elif choice == "⚽ Tuma Matokeo":
             selected_match_text = st.selectbox("Chagua Mechi Yako", list(match_options.keys()))
             match_id = match_options[selected_match_text]
             
-            c.execute("SELECT home, away, stage FROM matches WHERE id=?", (match_id,))
+            c.execute("SELECT home, away FROM matches WHERE id=?", (match_id,))
             match_data = c.fetchone()
             
             with st.form("player_res_form"):
@@ -176,7 +168,6 @@ elif choice == "⚽ Tuma Matokeo":
 elif choice == "📊 Matokeo & Msimamo":
     conn = sqlite3.connect('tinka_tech_v3.db')
     
-    # --- 🏆 HALL OF FAME (UKUTA WA MABINGWA) ---
     st.markdown("## 🏆 UKUTA WA MABINGWA (HALL OF FAME)")
     df_winners = pd.read_sql("SELECT league_id AS 'Msimu/Ligi', winner AS 'Mfalme wa Taji/Bingwa' FROM leagues WHERE status='Completed'", conn)
     if not df_winners.empty:
@@ -185,7 +176,6 @@ elif choice == "📊 Matokeo & Msimamo":
         st.write("Msimu wa kwanza ndio unaanza, hakuna bingwa wa kihistoria bado!")
     st.markdown("---")
     
-    # Orodha ya ligi zote kwa ajili ya kuangalia msimamo
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     if not all_leagues.empty:
         l_id = st.selectbox("Tazama Msimamo na Matokeo ya Ligi ya:", all_leagues['league_id'].tolist())
@@ -202,7 +192,6 @@ elif choice == "📊 Matokeo & Msimamo":
             st.markdown("---")
             st.subheader(f"📈 Msimamo wa Ligi (League Table) - Ligi {l_id}")
             
-            # HESABU ZA MSIMAMO KWA KILA LIGI
             standings = {}
             for m in played_matches:
                 home, away, h_score, a_score = m[0], m[1], m[2], m[3]
@@ -242,11 +231,35 @@ elif choice == "📊 Matokeo & Msimamo":
             st.info("Hakuna mechi zilizochezwa bado kwenye ligi hii.")
     conn.close()
 
+# --- ⚙️ ADMIN HUB ILYOBORESHWA (LOGIN UPDATE) ---
 elif choice == "⚙️ Admin Hub":
-    password = st.text_input("Ingiza Password ya Tinka Tech Admin", type="password")
-    
-    if password == "tinka2026": 
+    # 1. Hakikisha state ya login ipo
+    if 'admin_logged_in' not in st.session_state:
+        st.session_state.admin_logged_in = False
+
+    # 2. Kama haja-log in, onyesha fomu ya kuingia
+    if not st.session_state.admin_logged_in:
+        st.subheader("Tinka Tech Admin System")
+        password = st.text_input("Ingiza Password ya Admin", type="password")
+        
+        if st.button("Ingia Admin Hub"):
+            # .strip() inafuta space zote za makosa mwanzo au mwisho wa neno
+            if password.strip() == "tinka2026": 
+                st.session_state.admin_logged_in = True
+                st.success("Umeingia vizuri!")
+                st.rerun()
+            else:
+                st.error("Password si sahihi! Hakikisha herufi zote ni ndogo.")
+                
+    # 3. Kama amesha-log in, mfungulie panel rasmi bila mizinguo ya password
+    else:
         st.success("Karibu Msimamizi Mkuu!")
+        
+        # Kitufe cha kutoka (Logout) kikwekwa pembeni ili kurudi uraiani
+        if st.sidebar.button("🔒 Toka Admin (Logout)"):
+            st.session_state.admin_logged_in = False
+            st.rerun()
+            
         tab1, tab2, tab3, tab4 = st.tabs(["✅ Hakiki Wachezaji", "📅 Panga Ratiba", "🔧 Lazimisha Matokeo", "🔒 Funga Ligi & Tangaza Bingwa"])
         
         # TAB 1: VERIFICATION
@@ -261,6 +274,7 @@ elif choice == "⚙️ Admin Hub":
                         c = conn.cursor()
                         c.execute("UPDATE players SET status = 'Verified' WHERE id = ?", (row['id'],))
                         conn.commit()
+                        st.success(f"{row['name']} amethibitishwa!")
                         st.rerun()
             else:
                 st.write("Hakuna maombi mapya ya usajili.")
@@ -297,12 +311,13 @@ elif choice == "⚙️ Admin Hub":
                                 c.execute("UPDATE matches SET home_score=?, away_score=?, status='Played' WHERE id=?", 
                                           (h_goals, a_goals, row['id']))
                                 conn.commit()
+                                st.success("Matokeo yamelazimishwa vizuri!")
                                 st.rerun()
             else:
                 st.write("Hakuna mechi zinazosubiri matokeo.")
             conn.close()
 
-        # TAB 4: FUNGA LIGI (NEW FEATURE)
+        # TAB 4: FUNGA LIGI
         with tab4:
             st.write("### 🔒 Funga Ligi na Kuanzisha Msimu Mpya")
             st.warning("Ukifunga ligi hii, wachezaji wakijisajili upya wataingizwa kwenye ligi mpya inayofuata kiotomatiki.")
@@ -317,9 +332,7 @@ elif choice == "⚙️ Admin Hub":
                 if st.button("Funga Msimu na Tangaza Bingwa 🏆"):
                     if winner_name:
                         c = conn.cursor()
-                        # Funga ligi ya sasa na weka mshindi
                         c.execute("UPDATE leagues SET winner=?, status='Completed' WHERE league_id=?", (winner_name, league_to_close))
-                        # Fungua ligi mpya inayofuata ili mfumo uwe tayari kupokea hela na usajili mpya
                         next_league = league_to_close + 1
                         c.execute("INSERT INTO leagues (league_id, winner, status) VALUES (?, '', 'Active')", (next_league,))
                         conn.commit()
@@ -330,7 +343,3 @@ elif choice == "⚙️ Admin Hub":
             else:
                 st.write("Hakuna ligi inayoendelea kwa sasa.")
             conn.close()
-            
-    elif password != "":
-        st.error("Password si sahihi!")
-        
