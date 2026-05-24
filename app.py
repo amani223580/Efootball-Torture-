@@ -157,4 +157,3 @@ if __name__ == "__main__":
     # Mfano: Kuonyesha msimamo wa League 1
     print_table(1)
     # Efootball-Torture-
-The high cup
