@@ -10,8 +10,10 @@ def calculate_standings_helpers(played_matches):
     standings = {}
     for m in played_matches:
         home, away, h_score, a_score = m[0], m[1], m[2], m[3]
-        if home not in standings: standings[home] = {'Pts':0, 'GD':0, 'GF':0, 'GA':0, 'Pld':0, 'W':0, 'D':0, 'L':0}
-        if away not in standings: standings[away] = {'Pts':0, 'GD':0, 'GF':0, 'GA':0, 'Pld':0, 'W':0, 'D':0, 'L':0}
+        if home not in standings: 
+            standings[home] = {'Pts':0, 'GD':0, 'GF':0, 'GA':0, 'Pld':0, 'W':0, 'D':0, 'L':0}
+        if away not in standings: 
+            standings[away] = {'Pts':0, 'GD':0, 'GF':0, 'GA':0, 'Pld':0, 'W':0, 'D':0, 'L':0}
         
         standings[home]['Pld'] += 1
         standings[away]['Pld'] += 1
@@ -37,15 +39,22 @@ def calculate_standings_helpers(played_matches):
             standings[home]['D'] += 1
             standings[away]['D'] += 1
             
-    # Panga kwa Pointi, kisha Magoli ya kufunga, kisha GD
-    sorted_teams = sorted(standings.items(), key=lambda x: (x[1]['Pts'], x[1]['GD'], x[1]['GF']), reverse=True)
+    sorted_teams = sorted(
+        standings.items(), 
+        key=lambda x: (x[1]['Pts'], x[1]['GD'], x[1]['GF']), 
+        reverse=True
+    )
     return sorted_teams
 
 def get_match_winner(league_id, stage_name):
     try:
-        conn = sqlite3.connect('tinka_tech_v12.db')
+        conn = sqlite3.connect('tinka_tech_v13.db')
         c = conn.cursor()
-        c.execute("SELECT home, away, home_score, away_score FROM matches WHERE league_id=? AND stage=? AND status='Played'", (league_id, stage_name))
+        c.execute("""
+            SELECT home, away, home_score, away_score 
+            FROM matches 
+            WHERE league_id=? AND stage=? AND status='Played'
+        """, (league_id, stage_name))
         res = c.fetchone()
         conn.close()
         if res:
@@ -57,17 +66,40 @@ def get_match_winner(league_id, stage_name):
         return None
 
 # ==========================================
-# 2. DATABASE SETUP (V12)
+# 2. DATABASE SETUP (V13)
 # ==========================================
 def init_db():
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS players 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, league_id INTEGER, name TEXT, phone TEXT, payment_id TEXT, status TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS matches 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, league_id INTEGER, home TEXT, away TEXT, home_score INTEGER, away_score INTEGER, stage TEXT, status TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS leagues 
-                 (league_id INTEGER PRIMARY KEY, winner TEXT, status TEXT)''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS players (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            league_id INTEGER, 
+            name TEXT, 
+            phone TEXT, 
+            payment_id TEXT, 
+            status TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS matches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            league_id INTEGER, 
+            home TEXT, 
+            away TEXT, 
+            home_score INTEGER, 
+            away_score INTEGER, 
+            stage TEXT, 
+            status TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS leagues (
+            league_id INTEGER PRIMARY KEY, 
+            winner TEXT, 
+            status TEXT
+        )
+    ''')
     
     c.execute("SELECT COUNT(*) FROM leagues")
     if c.fetchone()[0] == 0:
@@ -81,10 +113,9 @@ init_db()
 # ==========================================
 # 3. MUONEKANO WA MFUMO (UI LAYOUT)
 # ==========================================
-st.set_page_config(page_title="Tinka Tech League", layout="wide")
+st.set_page_config(page_title="Tinka Tech League V13", layout="wide")
 st.title("🏆 TINKA TECH LEAGUE 🎮")
 
-# Menyu 9 Zote Zilizoombwa
 menu = [
     "🏠 Home & Sheria", 
     "📝 Jisajili Hapa", 
@@ -135,14 +166,17 @@ elif choice == "📝 Jisajili Hapa":
         
         if submitted:
             if name and pay_id and phone:
-                conn = sqlite3.connect('tinka_tech_v12.db')
+                conn = sqlite3.connect('tinka_tech_v13.db')
                 c = conn.cursor()
                 c.execute("SELECT league_id FROM leagues WHERE status='Active' ORDER BY league_id DESC LIMIT 1")
                 active_row = c.fetchone()
                 current_league = active_row[0] if active_row else 1
                 
-                c.execute('INSERT INTO players (league_id, name, phone, payment_id, status) VALUES (?, ?, ?, ?, ?)', 
-                          (current_league, name, phone, pay_id, "Pending"))
+                c.execute('''
+                    INSERT INTO players (league_id, name, phone, payment_id, status) 
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (current_league, name, phone, pay_id, "Pending"))
+                
                 conn.commit()
                 conn.close()
                 st.success(f"Hongera {name}! Umesajiliwa kwenye **LIGI NAMBA {current_league}**. Subiri Admin aku-verify.")
@@ -151,11 +185,15 @@ elif choice == "📝 Jisajili Hapa":
 
 elif choice == "📅 Ratiba & Mawasiliano":
     st.subheader("Mawasiliano na Simu za Wachezaji walio-Verify")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     if not all_leagues.empty:
         l_id = st.selectbox("Chagua Ligi kuona Wachezaji", all_leagues['league_id'].tolist(), key="contacts_lg")
-        df_contacts = pd.read_sql(f"SELECT name AS 'Jina la Game', phone AS 'Namba ya Simu', status AS 'Hali' FROM players WHERE league_id={l_id}", conn)
+        df_contacts = pd.read_sql(f"""
+            SELECT name AS 'Jina la Game', phone AS 'Namba ya Simu', status AS 'Hali' 
+            FROM players 
+            WHERE league_id={l_id}
+        """, conn)
         if not df_contacts.empty:
             st.dataframe(df_contacts, use_container_width=True)
         else:
@@ -164,13 +202,17 @@ elif choice == "📅 Ratiba & Mawasiliano":
 
 elif choice == "⚽ Tuma Matokeo":
     st.subheader("Sehemu ya Wachezaji Kuingiza Matokeo (Self-Submission)")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     active_leagues = pd.read_sql("SELECT league_id FROM leagues WHERE status='Playing'", conn)
     
     if not active_leagues.empty:
         l_id = st.selectbox("Chagua Ligi Unayocheza", active_leagues['league_id'].tolist())
         c = conn.cursor()
-        c.execute("SELECT id, home, away, stage FROM matches WHERE status='Pending' AND league_id=?", (l_id,))
+        c.execute("""
+            SELECT id, home, away, stage 
+            FROM matches 
+            WHERE status='Pending' AND league_id=?
+        """, (l_id,))
         pending_list = c.fetchall()
         
         if pending_list:
@@ -186,8 +228,11 @@ elif choice == "⚽ Tuma Matokeo":
                 h_goals = col1.number_input(f"Magoli ya {match_data[0]}", min_value=0, step=1)
                 a_goals = col2.number_input(f"Magoli ya {match_data[1]}", min_value=0, step=1)
                 if st.form_submit_button("Tuma Matokeo"):
-                    c.execute("UPDATE matches SET home_score=?, away_score=?, status='Played' WHERE id=?", 
-                              (h_goals, a_goals, match_id))
+                    c.execute("""
+                        UPDATE matches 
+                        SET home_score=?, away_score=?, status='Played' 
+                        WHERE id=?
+                    """, (h_goals, a_goals, match_id))
                     conn.commit()
                     st.success("Matokeo yameingizwa kwa ufanisi!")
                     st.rerun()
@@ -199,13 +244,18 @@ elif choice == "⚽ Tuma Matokeo":
 
 elif choice == "📊 Matokeo ya Mechi":
     st.subheader("🏟️ Live Full Time Scores")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     
     if not all_leagues.empty:
         l_id = st.selectbox("Tazama Matokeo ya Ligi ya:", all_leagues['league_id'].tolist(), key="scores_select")
         c = conn.cursor()
-        c.execute("SELECT home, away, home_score, away_score, stage FROM matches WHERE status = 'Played' AND league_id = ? ORDER BY id DESC", (l_id,))
+        c.execute("""
+            SELECT home, away, home_score, away_score, stage 
+            FROM matches 
+            WHERE status = 'Played' AND league_id = ? 
+            ORDER BY id DESC
+        """, (l_id,))
         played_matches = c.fetchall()
         
         if played_matches:
@@ -217,7 +267,7 @@ elif choice == "📊 Matokeo ya Mechi":
 
 elif choice == "📈 Msimamo wa Ligi (Tables)":
     st.subheader("📈 Jedwali la Msimamo wa Hatua ya Makundi")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     
     if not all_leagues.empty:
@@ -225,7 +275,11 @@ elif choice == "📈 Msimamo wa Ligi (Tables)":
         c = conn.cursor()
         
         for g_name in ["Kundi A", "Kundi B", "Kundi C", "Kundi D"]:
-            c.execute("SELECT home, away, home_score, away_score FROM matches WHERE status = 'Played' AND league_id = ? AND stage = ?", (l_id, g_name))
+            c.execute("""
+                SELECT home, away, home_score, away_score 
+                FROM matches 
+                WHERE status = 'Played' AND league_id = ? AND stage = ?
+            """, (l_id, g_name))
             g_matches = c.fetchall()
             
             c.execute("SELECT DISTINCT home FROM matches WHERE league_id = ? AND stage = ?", (l_id, g_name))
@@ -238,7 +292,6 @@ elif choice == "📈 Msimamo wa Ligi (Tables)":
             if g_players:
                 st.markdown(f"#### 📊 {g_name}")
                 sorted_standings = calculate_standings_helpers(g_matches)
-                # Ensure hata timu ambazo hazijacheza lakini zipo kundi zinaonekana 0
                 res_dict = {}
                 for name, stats in sorted_standings:
                     res_dict[name] = stats
@@ -252,7 +305,7 @@ elif choice == "📈 Msimamo wa Ligi (Tables)":
 
 elif choice == "🏆 Msimamo wa Knockouts & Waliofuzu":
     st.subheader("🏆 Uchambuzi wa Waliofuzu Hatua za Mtoano")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     
     if not all_leagues.empty:
@@ -264,7 +317,11 @@ elif choice == "🏆 Msimamo wa Knockouts & Waliofuzu":
         with col1:
             st.markdown("### 🚪 Kutoka Makundi kwenda Robo")
             for g in ["Kundi A", "Kundi B", "Kundi C", "Kundi D"]:
-                c.execute("SELECT home, away, home_score, away_score FROM matches WHERE league_id=? AND stage=? AND status='Played'", (l_id, g))
+                c.execute("""
+                    SELECT home, away, home_score, away_score 
+                    FROM matches 
+                    WHERE league_id=? AND stage=? AND status='Played'
+                """, (l_id, g))
                 matches = c.fetchall()
                 res = calculate_standings_helpers(matches)
                 if len(res) >= 2:
@@ -294,14 +351,19 @@ elif choice == "🏆 Msimamo wa Knockouts & Waliofuzu":
 
 elif choice == "🗓️ Ratiba Kamili ya Hatua (Fixtures)":
     st.subheader("🗓️ Ratiba Zote na Hali ya Sasa")
-    conn = sqlite3.connect('tinka_tech_v12.db')
+    conn = sqlite3.connect('tinka_tech_v13.db')
     all_leagues = pd.read_sql("SELECT league_id FROM leagues", conn)
     
     if not all_leagues.empty:
         l_id = st.selectbox("Chagua Ligi kuona Ratiba", all_leagues['league_id'].tolist(), key="fixtures_page_select")
         c = conn.cursor()
         
-        c.execute("SELECT stage FROM matches WHERE league_id=? AND status='Pending' ORDER BY id ASC LIMIT 1", (l_id,))
+        c.execute("""
+            SELECT stage 
+            FROM matches 
+            WHERE league_id=? AND status='Pending' 
+            ORDER BY id ASC LIMIT 1
+        """, (l_id,))
         current_stage_row = c.fetchone()
         
         if current_stage_row:
@@ -310,9 +372,17 @@ elif choice == "🗓️ Ratiba Kamili ya Hatua (Fixtures)":
             st.info("Ligi hii haina mechi zinazosubiri kuchezwa. Huenda imekamilika au haijaanza.")
             
         st.markdown("---")
-        stages_in_db = ["Kundi A", "Kundi B", "Kundi C", "Kundi D", "Robo Fainali 1", "Robo Fainali 2", "Robo Fainali 3", "Robo Fainali 4", "Nusu Fainali 1", "Nusu Fainali 2", "Fainali"]
+        stages_in_db = [
+            "Kundi A", "Kundi B", "Kundi C", "Kundi D", 
+            "Robo Fainali 1", "Robo Fainali 2", "Robo Fainali 3", "Robo Fainali 4", 
+            "Nusu Fainali 1", "Nusu Fainali 2", "Fainali"
+        ]
         for stg in stages_in_db:
-            df_stg = pd.read_sql(f"SELECT home AS 'Nyumbani', away AS 'Ugenini', status AS 'Hali ya Mechi' FROM matches WHERE league_id={l_id} AND stage='{stg}'", conn)
+            df_stg = pd.read_sql(f"""
+                SELECT home AS 'Nyumbani', away AS 'Ugenini', status AS 'Hali ya Mechi' 
+                FROM matches 
+                WHERE league_id={l_id} AND stage='{stg}'
+            """, conn)
             if not df_stg.empty:
                 st.markdown(f"#### 🏟️ Ratiba ya - **{stg}**")
                 st.table(df_stg)
@@ -334,11 +404,11 @@ elif choice == "⚙️ Admin Hub":
             st.session_state.admin_logged_in = False
             st.rerun()
             
-        tab1, tab2, tab3 = st.tabs(["✅ 1. Hakiki Usajili", "🤖 2. Panga Ratiba (Auto-Pilot)", "🔧 3. Lazimisha Matokeo & Funga"])
+        tab1, tab2, tab3 = st.tabs(["✅ 1. Hakiki Usajili", "🤖 2. Panga Ratiba (Auto)", "🔧 3. Matokeo & Funga"])
         
         with tab1:
             st.write("### Orodha ya Wachezaji Wote (Verify Hub)")
-            conn = sqlite3.connect('tinka_tech_v12.db')
+            conn = sqlite3.connect('tinka_tech_v13.db')
             players_df = pd.read_sql("SELECT id, name, phone, payment_id, status, league_id FROM players ORDER BY id DESC", conn)
             if not players_df.empty:
                 for idx, row in players_df.iterrows():
@@ -357,10 +427,9 @@ elif choice == "⚙️ Admin Hub":
             
         with tab2:
             st.write("### 🤖 Panga Ratiba Kiotomatiki (Flexibility & Knockouts)")
-            conn = sqlite3.connect('tinka_tech_v12.db')
+            conn = sqlite3.connect('tinka_tech_v13.db')
             c = conn.cursor()
             
-            # SEHEMU A: Kuanzisha Ligi Mpya (Kutoka Active -> Playing)
             st.markdown("#### A: Tengeneza Ratiba ya Makundi kwa Ligi Mpya")
             c.execute("SELECT league_id FROM leagues WHERE status='Active' ORDER BY league_id DESC LIMIT 1")
             active_row = c.fetchone()
@@ -376,15 +445,25 @@ elif choice == "⚙️ Admin Hub":
                         c.execute("SELECT name FROM players WHERE league_id=? AND status='Verified'", (sel_league,))
                         p_list = [r[0] for r in c.fetchall()]
                         
-                        # Mgawanyo salama
                         if len(p_list) >= 16:
-                            groups = {"Kundi A": p_list[0:4], "Kundi B": p_list[4:8], "Kundi C": p_list[8:12], "Kundi D": p_list[12:16]}
+                            groups = {
+                                "Kundi A": p_list[0:4], 
+                                "Kundi B": p_list[4:8], 
+                                "Kundi C": p_list[8:12], 
+                                "Kundi D": p_list[12:16]
+                            }
                             for g_name, g_players in groups.items():
                                 for p in itertools.combinations(g_players, 2):
-                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, ?, 'Pending')", (sel_league, p[0], p[1], g_name))
+                                    c.execute("""
+                                        INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) 
+                                        VALUES (?, ?, ?, 0, 0, ?, 'Pending')
+                                    """, (sel_league, p[0], p[1], g_name))
                         else:
                             for p in itertools.combinations(p_list, 2):
-                                c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Kundi A', 'Pending')", (sel_league, p[0], p[1]))
+                                c.execute("""
+                                    INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) 
+                                    VALUES (?, ?, ?, 0, 0, 'Kundi A', 'Pending')
+                                """, (sel_league, p[0], p[1]))
                         
                         c.execute("UPDATE leagues SET status='Playing' WHERE league_id=?", (sel_league,))
                         c.execute("INSERT INTO leagues (league_id, winner, status) VALUES (?, '', 'Active')", (sel_league + 1,))
@@ -395,11 +474,97 @@ elif choice == "⚙️ Admin Hub":
                     st.warning("Inahitaji wachezaji angalau 2 waliothibitishwa.")
             
             st.markdown("---")
-            # SEHEMU B: Kupeleka Ligi Hatua za Mtoano (Knockouts)
             st.markdown("#### B: Peleka Ligi Inayoendelea Hatua ya Mtoano")
             c.execute("SELECT league_id FROM leagues WHERE status='Playing'")
             playing_lgs = c.fetchall()
             
             if playing_lgs:
                 p_l_id = st.selectbox("Chagua Ligi Inayoendelea", [x[0] for x in playing_lgs])
-                c.execute("SELECT COUNT(*) FROM matches WHERE league_id=? AN
+                c.execute("""
+                    SELECT COUNT(*) 
+                    FROM matches 
+                    WHERE league_id=? AND status='Pending'
+                """, (p_l_id,))
+                pend_count = c.fetchone()[0]
+                
+                if pend_count > 0:
+                    st.error(f"⚠️ Kuna mechi {pend_count} bado hazijachezwa. Kamilisha kwanza.")
+                else:
+                    c.execute("SELECT DISTINCT stage FROM matches WHERE league_id=?", (p_l_id,))
+                    stages = [r[0] for r in c.fetchall()]
+                    
+                    def get_top_2(g_name):
+                        c.execute("""
+                            SELECT home, away, home_score, away_score 
+                            FROM matches 
+                            WHERE league_id=? AND stage=? AND status='Played'
+                        """, (p_l_id, g_name))
+                        return [x[0] for x in calculate_standings_helpers(c.fetchall())]
+
+                    if "Kundi A" in stages and "Robo Fainali 1" not in stages and "Nusu Fainali 1" not in stages:
+                        if "Kundi B" in stages:
+                            if st.button("🚀 Zaa Mechi za Robo Fainali (Kutoka Makundi 4)"):
+                                tA, tB = get_top_2("Kundi A"), get_top_2("Kundi B")
+                                tC, tD = get_top_2("Kundi C"), get_top_2("Kundi D")
+                                if len(tA)>=2 and len(tB)>=2 and len(tC)>=2 and len(tD)>=2:
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Robo Fainali 1', 'Pending')", (p_l_id, tA[0], tB[1]))
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Robo Fainali 2', 'Pending')", (p_l_id, tB[0], tA[1]))
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Robo Fainali 3', 'Pending')", (p_l_id, tC[0], tD[1]))
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Robo Fainali 4', 'Pending')", (p_l_id, tD[0], tC[1]))
+                                    conn.commit(); st.rerun()
+                        else:
+                            if st.button("🚀 Zaa Mechi za Nusu Fainali (Kutoka Kundi 1)"):
+                                tA = get_top_2("Kundi A")
+                                if len(tA)>=4:
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Nusu Fainali 1', 'Pending')", (p_l_id, tA[0], tA[3]))
+                                    c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Nusu Fainali 2', 'Pending')", (p_l_id, tA[1], tA[2]))
+                                    conn.commit(); st.rerun()
+                                else:
+                                    st.warning("Hakuna wachezaji 4 wa kutosha kwenye kundi.")
+                                    
+                    elif "Robo Fainali 1" in stages and "Nusu Fainali 1" not in stages:
+                        if st.button("🚀 Zaa Mechi za Nusu Fainali"):
+                            w1 = get_match_winner(p_l_id, "Robo Fainali 1")
+                            w2 = get_match_winner(p_l_id, "Robo Fainali 2")
+                            w3 = get_match_winner(p_l_id, "Robo Fainali 3")
+                            w4 = get_match_winner(p_l_id, "Robo Fainali 4")
+                            if w1 and w2 and w3 and w4:
+                                c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Nusu Fainali 1', 'Pending')", (p_l_id, w1, w3))
+                                c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Nusu Fainali 2', 'Pending')", (p_l_id, w2, w4))
+                                conn.commit(); st.rerun()
+                                
+                    elif "Nusu Fainali 1" in stages and "Fainali" not in stages:
+                        if st.button("🚀 Zaa Mechi ya Fainali"):
+                            sf1 = get_match_winner(p_l_id, "Nusu Fainali 1")
+                            sf2 = get_match_winner(p_l_id, "Nusu Fainali 2")
+                            if sf1 and sf2:
+                                c.execute("INSERT INTO matches (league_id, home, away, home_score, away_score, stage, status) VALUES (?, ?, ?, 0, 0, 'Fainali', 'Pending')", (p_l_id, sf1, sf2))
+                                conn.commit(); st.rerun()
+                    
+                    elif "Fainali" in stages:
+                        st.success("Fainali imeshachezwa! Nenda Tab ya 3 kufunga Ligi.")
+            else:
+                st.info("Hakuna Ligi inayoendelea kwa sasa.")
+            conn.close()
+
+        with tab3:
+            st.write("### 🔒 Funga Ligi na Kutoa Ubingwa")
+            conn = sqlite3.connect('tinka_tech_v13.db')
+            playing_lgs = pd.read_sql("SELECT league_id FROM leagues WHERE status='Playing'", conn)
+            
+            if not playing_lgs.empty:
+                l_id_close = st.selectbox("Chagua Ligi Kufunga", playing_lgs['league_id'].tolist())
+                bingwa = get_match_winner(l_id_close, "Fainali")
+                if bingwa:
+                    st.success(f"Bingwa wa Ligi {l_id_close} ni: **{bingwa}**")
+                    if st.button("🏆 Funga Ligi Rasmi"):
+                        c = conn.cursor()
+                        c.execute("UPDATE leagues SET winner=?, status='Completed' WHERE league_id=?", (bingwa, l_id_close))
+                        conn.commit()
+                        st.success("Ligi imefungwa rasmi na ukuta wa mabingwa umejihuisha!")
+                        st.rerun()
+                else:
+                    st.warning("Fainali bado haijachezwa au matokeo hayajaingizwa.")
+            else:
+                st.info("Hakuna ligi ya kufunga.")
+            conn.close()
